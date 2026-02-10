@@ -28,4 +28,3 @@ Para gerar build deste projeto, utilize os comandos:
 2. Gerar o arquivo executável
     ```bash
     go build -ldflags="-s -w -H=windowsgui" -o rewardsAutomation.exe ./cmd/
-
