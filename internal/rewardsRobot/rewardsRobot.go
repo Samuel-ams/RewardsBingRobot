@@ -44,17 +44,17 @@ func (r *RewardsRobot) Run() (err error) {
 		return err
 	}
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
-
 	u := launcher.New().
 		Bin(cfg.EdgePath).
 		Headless(false).
 		UserDataDir(cfg.UserEdgeDir).
 		Leakless(false).
 		MustLaunch()
+
+	err = r.sleepOrCancel(time.Second)
+	if err != nil {
+		return err
+	}
 
 	browser := rod.New().
 		ControlURL(u).
