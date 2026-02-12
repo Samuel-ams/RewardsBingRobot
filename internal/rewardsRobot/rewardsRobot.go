@@ -62,8 +62,6 @@ func (r *RewardsRobot) Run() (err error) {
 		MustConnect()
 	defer browser.MustClose()
 
-	r.sleepOrCancel(time.Second)
-
 	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
 
 	newsPage := browser.MustPage(newsBingUrl).MustWindowMaximize().MustWaitLoad()
@@ -89,6 +87,8 @@ func (r *RewardsRobot) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	robotgo.KeySleep = 300
 
 	robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
 
@@ -157,6 +157,60 @@ func (r *RewardsRobot) Run() (err error) {
 		if err != nil {
 			return err
 		}
+	}
+
+	bingUrl := "bing.com"
+
+	robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
+
+	err = r.sleepOrCancel(time.Second)
+	if err != nil {
+		return err
+	}
+
+	for _, ch := range bingUrl {
+		select {
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		default:
+			robotgo.Type(string(ch), 0, cfg.TypeTick)
+		}
+	}
+
+	err = r.sleepOrCancel(time.Millisecond * 500)
+	if err != nil {
+		return err
+	}
+
+	robotgo.KeyTap(robotgo.Backspace)
+
+	err = r.sleepOrCancel(time.Millisecond * 500)
+	if err != nil {
+		return err
+	}
+
+	robotgo.KeyTap(robotgo.Enter)
+
+	err = r.sleepOrCancel(time.Minute)
+	if err != nil {
+		return err
+	}
+
+	robotgo.KeyTap(robotgo.KeyS, robotgo.Alt, robotgo.Shift)
+
+	err = r.sleepOrCancel(time.Second)
+	if err != nil {
+		return err
+	}
+
+	robotgo.MouseDown()
+	axisX, axisY := robotgo.Location()
+	robotgo.MoveSmooth(axisX+300, axisY+300, cfg.LowSpeed, cfg.HighSpeed)
+	robotgo.MouseUp()
+
+	err = r.sleepOrCancel(time.Minute)
+	if err != nil {
+		return err
 	}
 
 	return nil
