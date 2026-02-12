@@ -205,7 +205,7 @@ func (r *RewardsRobot) Run() (err error) {
 
 	robotgo.MouseDown()
 	axisX, axisY := robotgo.Location()
-	robotgo.MoveSmooth(axisX+300, axisY+300, cfg.LowSpeed, cfg.HighSpeed)
+	robotgo.MoveSmooth(axisX+400, axisY+400, cfg.LowSpeed, cfg.HighSpeed)
 	robotgo.MouseUp()
 
 	err = r.sleepOrCancel(time.Minute)
