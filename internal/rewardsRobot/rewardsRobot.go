@@ -117,7 +117,7 @@ func (r *RewardsRobot) Run() (err error) {
 		return err
 	}
 
-	for range cfg.QtdSearches - 2 {
+	for range cfg.QtdSearches - 1 {
 		snippetTitleLength := len(snippetTitle)
 		snippetTitle = snippetTitle[:snippetTitleLength-1]
 
@@ -177,14 +177,14 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	err = r.sleepOrCancel(time.Millisecond * 500)
+	err = r.sleepOrCancel(time.Second)
 	if err != nil {
 		return err
 	}
 
-	robotgo.KeyTap(robotgo.Backspace)
+	robotgo.KeyTap(robotgo.Delete)
 
-	err = r.sleepOrCancel(time.Millisecond * 500)
+	err = r.sleepOrCancel(time.Second)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,19 @@ func (r *RewardsRobot) Run() (err error) {
 
 	robotgo.MouseDown()
 	axisX, axisY := robotgo.Location()
+
+	err = r.sleepOrCancel(time.Second)
+	if err != nil {
+		return err
+	}
+
 	robotgo.MoveSmooth(axisX+400, axisY+400, cfg.LowSpeed, cfg.HighSpeed)
+
+	err = r.sleepOrCancel(time.Second)
+	if err != nil {
+		return err
+	}
+
 	robotgo.MouseUp()
 
 	err = r.sleepOrCancel(time.Minute)
