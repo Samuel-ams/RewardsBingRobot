@@ -13,3 +13,6 @@ var RewardsLogoPNG []byte
 
 //go:embed rewardsLogo.ico
 var RewardsLogoICO []byte
+
+//go:embed agreeContinue.png
+var AgreeContinue []byte

@@ -3,6 +3,8 @@ package rewardsrobot
 import (
 	"context"
 	"fmt"
+	"image"
+	"log/slog"
 	"rewardsAutomation/internal/assets"
 	"rewardsAutomation/internal/config"
 	"rewardsAutomation/internal/edge"
@@ -201,6 +203,28 @@ func (r *RewardsRobot) Run() (err error) {
 	err = r.sleepOrCancel(time.Second)
 	if err != nil {
 		return err
+	}
+
+	pointAgreeContinue, err := matcher.MatchTemplateWithTimeout(assets.AgreeContinue, time.Minute)
+	if err != nil {
+		slog.Error("Agree and Continue button not found", "error", err)
+	}
+
+	if pointAgreeContinue != (image.Point{}) {
+
+		robotgo.MoveSmooth(pointAgreeContinue.X+10, pointAgreeContinue.Y, cfg.LowSpeed, cfg.HighSpeed)
+
+		err = r.sleepOrCancel(time.Second)
+		if err != nil {
+			return err
+		}
+
+		robotgo.Click()
+
+		err = r.sleepOrCancel(time.Second)
+		if err != nil {
+			return err
+		}
 	}
 
 	robotgo.MouseDown()

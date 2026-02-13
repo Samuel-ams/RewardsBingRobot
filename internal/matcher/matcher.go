@@ -3,8 +3,8 @@ package matcher
 import (
 	"fmt"
 	"image"
+	"time"
 
-	"github.com/go-vgo/robotgo"
 	"gocv.io/x/gocv"
 )
 
@@ -102,11 +102,17 @@ func FindTemplates(templates ...[]byte) (bool, error) {
 	return false, fmt.Errorf("%d templates not found", len(templates))
 }
 
-func captureScreen() image.Image {
-	bitmapScreenshot := robotgo.CaptureScreen()
-	defer robotgo.FreeBitmap(bitmapScreenshot)
+func MatchTemplateWithTimeout(template []byte, timeout time.Duration) (image.Point, error) {
+	start := time.Now()
 
-	screenshotIMG := robotgo.ToImage(bitmapScreenshot)
+	for {
+		maxLoc, err := MatchTemplate(template)
+		if err == nil {
+			return maxLoc, nil
+		}
 
-	return screenshotIMG
+		if time.Since(start) > timeout {
+			return image.Point{}, fmt.Errorf("template not found within timeout: %v", timeout)
+		}
+	}
 }
