@@ -119,7 +119,7 @@ func (r *RewardsRobot) Run() (err error) {
 		snippetTitleLength := len(snippetTitle)
 		snippetTitle = snippetTitle[:snippetTitleLength-1]
 
-		err = r.clickSearchBar(cfg.LowSpeed, cfg.HighSpeed)
+		err = r.clickSearchBar()
 		if err != nil {
 			return err
 		}
@@ -148,88 +148,23 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	// bingUrl := "bing.com"
-
-	// robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
-
-	// time.Sleep(time.Second)
-
-	// for _, ch := range bingUrl {
-	// 	select {
-	// 	case <-r.ctx.Done():
-	// 		return r.ctx.Err()
-	// 	default:
-	// 		robotgo.Type(string(ch), 0, cfg.TypeTick)
-	// 	}
-	// }
-
-	// time.Sleep(time.Second)
-
-	// robotgo.KeyTap(robotgo.Delete)
-
-	// time.Sleep(time.Second)
-
-	// robotgo.KeyTap(robotgo.Enter)
-
-	// err = r.sleepOrCancel(time.Minute)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// robotgo.KeyTap(robotgo.KeyS, robotgo.Alt, robotgo.Shift)
-
-	// time.Sleep(time.Second)
-
-	// pointAgreeContinue, err := matcher.MatchTemplateWithTimeout(assets.AgreeContinue.Data, time.Minute)
-	// if err != nil {
-	// 	slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
-	// }
-
-	// if pointAgreeContinue != (image.Point{}) {
-
-	// 	robotgo.MoveSmooth(pointAgreeContinue.X+10, pointAgreeContinue.Y, cfg.LowSpeed, cfg.HighSpeed)
-
-	// 	err = r.sleepOrCancel(time.Second)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	robotgo.Click()
-
-	// 	err = r.sleepOrCancel(time.Second)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// robotgo.MouseDown()
-	// axisX, axisY := robotgo.Location()
-
-	// time.Sleep(time.Second)
-
-	// robotgo.MoveSmooth(axisX+400, axisY+400, cfg.LowSpeed, cfg.HighSpeed)
-
-	// time.Sleep(time.Second)
-
-	// robotgo.MouseUp()
-
-	// err = r.sleepOrCancel(time.Minute)
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
-func (r *RewardsRobot) clickSearchBar(lowSpeed, highSpeed float64) error {
-	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(time.Minute, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
+func (r *RewardsRobot) clickSearchBar() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(500 * time.Millisecond)
 
-	robotgo.MoveSmooth(searchBarPoint.X+60, searchBarPoint.Y, lowSpeed, highSpeed)
+	robotgo.MoveSmooth(searchBarPoint.X+60, searchBarPoint.Y, cfg.LowSpeed, cfg.HighSpeed)
 
 	time.Sleep(500 * time.Millisecond)
 
