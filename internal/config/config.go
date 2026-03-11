@@ -22,7 +22,7 @@ var defaultConfig = &Config{
 	UserEdgeDir: "",
 	// Setting Low and High mouse speed
 	LowSpeed:  0.1,
-	HighSpeed: 1.3,
+	HighSpeed: 1.2,
 	// TypeTick is the time in ms between each keystroke when typing
 	TypeTick: 150,
 	// Number of searches the robot will perform
