@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -21,9 +22,9 @@ var defaultConfig = &Config{
 	UserEdgeDir: "",
 	// Setting Low and High mouse speed
 	LowSpeed:  0.1,
-	HighSpeed: 1.2,
+	HighSpeed: 1.3,
 	// TypeTick is the time in ms between each keystroke when typing
-	TypeTick: 140,
+	TypeTick: 150,
 	// Number of searches the robot will perform
 	QtdSearches: 30,
 }
@@ -34,12 +35,21 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	// Edge user data directory is located in the user's home directory under "AppData\Local\Microsoft\Edge"
-	homeDir = filepath.Join(homeDir, "AppData", "Local", "Microsoft", "Edge")
+	edgePath := os.Getenv("EDGE_PATH")
+	if edgePath == "" {
+		return nil, errors.New("EDGE_PATH is not set")
+	}
 
-	defaultConfig.EdgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-	defaultConfig.UserEdgeDir = homeDir
+	userEdgeDir := os.Getenv("USER_EDGE_DIR")
+	if userEdgeDir == "" {
+		return nil, errors.New("USER_EDGE_DIR is not set")
+	}
 
-	// Load the Edge executable path && user data directory from environment variables
+	homeDir = filepath.Join(homeDir, userEdgeDir)
+
+	// Load config from environment variables
+	defaultConfig.EdgePath = edgePath
+	defaultConfig.UserEdgeDir = userEdgeDir
+
 	return defaultConfig, nil
 }

@@ -3,8 +3,8 @@ package rewardsrobot
 import (
 	"context"
 	"fmt"
-	"image"
 	"log/slog"
+	"math/rand/v2"
 	"rewardsAutomation/internal/assets"
 	"rewardsAutomation/internal/config"
 	"rewardsAutomation/internal/edge"
@@ -29,11 +29,13 @@ func New(ctx context.Context) *RewardsRobot {
 }
 
 func (r *RewardsRobot) Run() (err error) {
+	startTime := time.Now()
 	defer func() {
 		r := recover()
 		if r != nil {
 			err = fmt.Errorf("%v", r)
 		}
+		slog.Info("Time elapsed", "time", time.Since(startTime))
 	}()
 
 	cfg, err := config.Load()
@@ -53,10 +55,7 @@ func (r *RewardsRobot) Run() (err error) {
 		Leakless(false).
 		MustLaunch()
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	time.Sleep(time.Second)
 
 	browser := rod.New().
 		ControlURL(u).
@@ -67,6 +66,11 @@ func (r *RewardsRobot) Run() (err error) {
 	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
 
 	newsPage := browser.MustPage(newsBingUrl).MustWindowMaximize().MustWaitLoad()
+
+	err = matcher.MatchTemplateAndClickCenter(assets.AceitarButton.Data, time.Second*20)
+	if err != nil {
+		slog.Error(assets.AceitarButton.Name+" button not found", "error", err)
+	}
 
 	snippetsJS := `() => {
 		let snippets = document.querySelectorAll(".snippet")
@@ -85,19 +89,13 @@ func (r *RewardsRobot) Run() (err error) {
 
 	snippetTitle = keepAlphaNumeric(snippetTitle)
 
-	err = r.sleepOrCancel(time.Minute)
-	if err != nil {
-		return err
-	}
+	time.Sleep(time.Second)
 
 	robotgo.KeySleep = 300
 
 	robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	time.Sleep(time.Second)
 
 	for _, ch := range snippetTitle {
 		select {
@@ -108,10 +106,8 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	err = r.sleepOrCancel(time.Millisecond * 500)
-	if err != nil {
-		return err
-	}
+	time.Sleep(time.Millisecond * 500)
+
 	robotgo.KeyTap(robotgo.Enter)
 
 	err = r.sleepOrCancel(time.Minute)
@@ -130,27 +126,18 @@ func (r *RewardsRobot) Run() (err error) {
 
 		robotgo.KeyTap(robotgo.End, robotgo.Ctrl)
 
-		err = r.sleepOrCancel(time.Second)
-		if err != nil {
-			return err
-		}
+		time.Sleep(time.Second)
 
 		robotgo.KeyTap(robotgo.Backspace)
 
-		err = r.sleepOrCancel(time.Second)
-		if err != nil {
-			return err
-		}
+		time.Sleep(time.Second)
 
 		if snippetTitle[snippetTitleLength-2] == ' ' {
 			snippetTitle = snippetTitle[:snippetTitleLength-1]
 
 			robotgo.KeyTap(robotgo.Backspace)
 
-			err = r.sleepOrCancel(time.Millisecond * 500)
-			if err != nil {
-				return err
-			}
+			time.Sleep(time.Millisecond * 500)
 		}
 
 		robotgo.KeyTap(robotgo.Enter)
@@ -161,126 +148,99 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	bingUrl := "bing.com"
+	// bingUrl := "bing.com"
 
-	robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
+	// robotgo.KeyTap(robotgo.KeyT, robotgo.Ctrl)
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	for _, ch := range bingUrl {
-		select {
-		case <-r.ctx.Done():
-			return r.ctx.Err()
-		default:
-			robotgo.Type(string(ch), 0, cfg.TypeTick)
-		}
-	}
+	// for _, ch := range bingUrl {
+	// 	select {
+	// 	case <-r.ctx.Done():
+	// 		return r.ctx.Err()
+	// 	default:
+	// 		robotgo.Type(string(ch), 0, cfg.TypeTick)
+	// 	}
+	// }
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	robotgo.KeyTap(robotgo.Delete)
+	// robotgo.KeyTap(robotgo.Delete)
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	robotgo.KeyTap(robotgo.Enter)
+	// robotgo.KeyTap(robotgo.Enter)
 
-	err = r.sleepOrCancel(time.Minute)
-	if err != nil {
-		return err
-	}
+	// err = r.sleepOrCancel(time.Minute)
+	// if err != nil {
+	// 	return err
+	// }
 
-	robotgo.KeyTap(robotgo.KeyS, robotgo.Alt, robotgo.Shift)
+	// robotgo.KeyTap(robotgo.KeyS, robotgo.Alt, robotgo.Shift)
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	pointAgreeContinue, err := matcher.MatchTemplateWithTimeout(assets.AgreeContinue, time.Minute)
-	if err != nil {
-		slog.Error("Agree and Continue button not found", "error", err)
-	}
+	// pointAgreeContinue, err := matcher.MatchTemplateWithTimeout(assets.AgreeContinue.Data, time.Minute)
+	// if err != nil {
+	// 	slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
+	// }
 
-	if pointAgreeContinue != (image.Point{}) {
+	// if pointAgreeContinue != (image.Point{}) {
 
-		robotgo.MoveSmooth(pointAgreeContinue.X+10, pointAgreeContinue.Y, cfg.LowSpeed, cfg.HighSpeed)
+	// 	robotgo.MoveSmooth(pointAgreeContinue.X+10, pointAgreeContinue.Y, cfg.LowSpeed, cfg.HighSpeed)
 
-		err = r.sleepOrCancel(time.Second)
-		if err != nil {
-			return err
-		}
+	// 	err = r.sleepOrCancel(time.Second)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		robotgo.Click()
+	// 	robotgo.Click()
 
-		err = r.sleepOrCancel(time.Second)
-		if err != nil {
-			return err
-		}
-	}
+	// 	err = r.sleepOrCancel(time.Second)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	robotgo.MouseDown()
-	axisX, axisY := robotgo.Location()
+	// robotgo.MouseDown()
+	// axisX, axisY := robotgo.Location()
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	robotgo.MoveSmooth(axisX+400, axisY+400, cfg.LowSpeed, cfg.HighSpeed)
+	// robotgo.MoveSmooth(axisX+400, axisY+400, cfg.LowSpeed, cfg.HighSpeed)
 
-	err = r.sleepOrCancel(time.Second)
-	if err != nil {
-		return err
-	}
+	// time.Sleep(time.Second)
 
-	robotgo.MouseUp()
+	// robotgo.MouseUp()
 
-	err = r.sleepOrCancel(time.Minute)
-	if err != nil {
-		return err
-	}
+	// err = r.sleepOrCancel(time.Minute)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
 func (r *RewardsRobot) clickSearchBar(lowSpeed, highSpeed float64) error {
-	searchBarPoint, err := matcher.MatchTemplates(assets.SearchBarDark, assets.SearchBarLight)
+	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(time.Minute, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
 	if err != nil {
 		return err
 	}
 
-	err = r.sleepOrCancel(500 * time.Millisecond)
-	if err != nil {
-		return err
-	}
+	time.Sleep(500 * time.Millisecond)
 
 	robotgo.MoveSmooth(searchBarPoint.X+60, searchBarPoint.Y, lowSpeed, highSpeed)
 
-	err = r.sleepOrCancel(500 * time.Millisecond)
-	if err != nil {
-		return err
-	}
-	robotgo.Click()
+	time.Sleep(500 * time.Millisecond)
 
-	err = r.sleepOrCancel(time.Second * 2)
-	if err != nil {
-		return err
-	}
+	robotgo.Click()
 
 	return nil
 }
 
 func (r *RewardsRobot) sleepOrCancel(d time.Duration) error {
-	t := time.NewTimer(d)
+	random := rand.IntN(int(time.Minute))
+	t := time.NewTimer(d + time.Duration(random))
 	defer t.Stop()
 	select {
 	case <-r.ctx.Done():

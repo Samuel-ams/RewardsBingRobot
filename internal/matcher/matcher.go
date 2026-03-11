@@ -5,6 +5,9 @@ import (
 	"image"
 	"time"
 
+	"rewardsAutomation/internal/config"
+
+	"github.com/go-vgo/robotgo"
 	"gocv.io/x/gocv"
 )
 
@@ -115,4 +118,66 @@ func MatchTemplateWithTimeout(template []byte, timeout time.Duration) (image.Poi
 			return image.Point{}, fmt.Errorf("template not found within timeout: %v", timeout)
 		}
 	}
+}
+
+func MatchTemplatesWithTimeout(timeout time.Duration, templates ...[]byte) (image.Point, error) {
+	start := time.Now()
+
+	for {
+		maxLoc, err := MatchTemplates(templates...)
+		if err == nil {
+			return maxLoc, nil
+		}
+
+		if time.Since(start) > timeout {
+			return image.Point{}, fmt.Errorf("templates not found within timeout: %v", timeout)
+		}
+	}
+}
+
+func MatchTemplateAndClick(template []byte, timeout time.Duration) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	maxLoc, err := MatchTemplateWithTimeout(template, timeout)
+	if err != nil {
+		return err
+	}
+
+	robotgo.MoveSmooth(maxLoc.X, maxLoc.Y, cfg.LowSpeed, cfg.HighSpeed)
+	robotgo.Click()
+
+	return nil
+}
+
+func MatchTemplateAndClickCenter(template []byte, timeout time.Duration) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	maxLoc, err := MatchTemplateWithTimeout(template, timeout)
+	if err != nil {
+		return err
+	}
+
+	// Decode template to get its size
+	templateMat, err := gocv.IMDecode(template, gocv.IMReadColor)
+	if err != nil {
+		return err
+	}
+	defer templateMat.Close()
+
+	templateWidth := templateMat.Cols()
+	templateHeight := templateMat.Rows()
+
+	centerX := maxLoc.X + templateWidth/2
+	centerY := maxLoc.Y + templateHeight/2
+
+	robotgo.MoveSmooth(centerX, centerY, cfg.LowSpeed, cfg.HighSpeed)
+	robotgo.Click()
+
+	return nil
 }

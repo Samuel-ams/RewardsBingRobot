@@ -7,6 +7,7 @@ require (
 	github.com/getlantern/systray v1.2.2
 	github.com/go-rod/rod v0.116.2
 	github.com/go-vgo/robotgo v1.0.0
+	github.com/joho/godotenv v1.5.1
 	gocv.io/x/gocv v0.43.0
 )
 

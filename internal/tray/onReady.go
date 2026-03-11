@@ -12,7 +12,7 @@ import (
 )
 
 func onReady() {
-	systray.SetIcon(assets.RewardsLogoICO)
+	systray.SetIcon(assets.RewardsLogoICO.Data)
 	systray.SetTitle("Rewards Robot")
 	systray.SetTooltip("Automação Bing Rewards")
 
