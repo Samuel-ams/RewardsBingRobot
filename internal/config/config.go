@@ -30,6 +30,10 @@ var defaultConfig = &Config{
 }
 
 func Load() (*Config, error) {
+	if defaultConfig.EdgePath != "" && defaultConfig.UserEdgeDir != "" {
+		return defaultConfig, nil
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -49,7 +53,7 @@ func Load() (*Config, error) {
 
 	// Load config from environment variables
 	defaultConfig.EdgePath = edgePath
-	defaultConfig.UserEdgeDir = userEdgeDir
+	defaultConfig.UserEdgeDir = homeDir
 
 	return defaultConfig, nil
 }
