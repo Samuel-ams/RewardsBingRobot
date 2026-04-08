@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log/slog"
+	"context"
+	"fmt"
+	rewardsrobot "rewardsAutomation/internal/rewardsRobot"
 	"rewardsAutomation/internal/tray"
 
 	"github.com/gen2brain/beeep"
@@ -9,13 +11,44 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Overload()
 	if err != nil {
-		slog.Error("Error loading .env file", "error", err)
-		return
+		fmt.Printf("Error loading .env file: %v\n", err)
 	}
 
 	beeep.AppName = "RewardsRobot"
 
-	tray.Run()
+	ctx, cancel := context.WithCancel(context.Background())
+	errChan := make(chan error, 1)
+	doneChan := make(chan struct{}, 1)
+
+	sendErr := func(err error) {
+		select {
+		case errChan <- err:
+		default:
+		}
+	}
+
+	go func() {
+		defer func() {
+			recovered := recover()
+			if recovered != nil {
+				sendErr(fmt.Errorf("panic in main worker: %v", recovered))
+				cancel()
+			}
+		}()
+
+		robot := rewardsrobot.New(ctx)
+		err := robot.Run()
+		if err != nil && err != context.Canceled {
+			sendErr(err)
+			cancel()
+			return
+		}
+
+		cancel()
+		doneChan <- struct{}{}
+	}()
+
+	tray.Run(cancel, errChan, doneChan)
 }

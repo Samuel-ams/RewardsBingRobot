@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gen2brain/beeep"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-vgo/robotgo"
@@ -30,10 +31,14 @@ func New(ctx context.Context) *RewardsRobot {
 
 func (r *RewardsRobot) Run() (err error) {
 	startTime := time.Now()
+
+	beeep.Notify(beeep.AppName, "Iniciando execução...", assets.RewardsLogoPNG)
+
 	defer func() {
 		r := recover()
 		if r != nil {
-			err = fmt.Errorf("%v", r)
+			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", err), assets.RewardsLogoPNG)
+			return
 		}
 		slog.Info("Time elapsed", "time", time.Since(startTime))
 	}()
@@ -67,7 +72,7 @@ func (r *RewardsRobot) Run() (err error) {
 
 	newsPage := browser.MustPage(newsBingUrl).MustWindowMaximize().MustWaitLoad()
 
-	err = matcher.MatchTemplateAndClickCenter(assets.AceitarButton.Data, time.Second*20)
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, assets.AceitarButton.Data, time.Second*20)
 	if err != nil {
 		slog.Error(assets.AceitarButton.Name+" button not found", "error", err)
 	}
@@ -157,7 +162,7 @@ func (r *RewardsRobot) clickSearchBar() error {
 		return err
 	}
 
-	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
+	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(r.ctx, time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
 	if err != nil {
 		return err
 	}
@@ -174,7 +179,7 @@ func (r *RewardsRobot) clickSearchBar() error {
 }
 
 func (r *RewardsRobot) sleepOrCancel(d time.Duration) error {
-	random := rand.IntN(int(time.Minute))
+	random := rand.IntN(int(time.Second * 30))
 	t := time.NewTimer(d + time.Duration(random))
 	defer t.Stop()
 	select {

@@ -1,6 +1,7 @@
 package matcher
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"time"
@@ -105,43 +106,53 @@ func FindTemplates(templates ...[]byte) (bool, error) {
 	return false, fmt.Errorf("%d templates not found", len(templates))
 }
 
-func MatchTemplateWithTimeout(template []byte, timeout time.Duration) (image.Point, error) {
+func MatchTemplateWithTimeout(ctx context.Context, template []byte, timeout time.Duration) (image.Point, error) {
 	start := time.Now()
 
 	for {
-		maxLoc, err := MatchTemplate(template)
-		if err == nil {
-			return maxLoc, nil
-		}
+		select {
+		case <-ctx.Done():
+			return image.Point{}, ctx.Err()
+		default:
+			maxLoc, err := MatchTemplate(template)
+			if err == nil {
+				return maxLoc, nil
+			}
 
-		if time.Since(start) > timeout {
-			return image.Point{}, fmt.Errorf("template not found within timeout: %v", timeout)
+			if time.Since(start) > timeout {
+				return image.Point{}, fmt.Errorf("template not found within timeout: %v", timeout)
+			}
 		}
 	}
 }
 
-func MatchTemplatesWithTimeout(timeout time.Duration, templates ...[]byte) (image.Point, error) {
+func MatchTemplatesWithTimeout(ctx context.Context, timeout time.Duration, templates ...[]byte) (image.Point, error) {
 	start := time.Now()
 
 	for {
-		maxLoc, err := MatchTemplates(templates...)
-		if err == nil {
-			return maxLoc, nil
-		}
+		select {
+		case <-ctx.Done():
+			return image.Point{}, ctx.Err()
+		default:
+			maxLoc, err := MatchTemplates(templates...)
+			if err == nil {
+				return maxLoc, nil
+			}
 
-		if time.Since(start) > timeout {
-			return image.Point{}, fmt.Errorf("templates not found within timeout: %v", timeout)
+			if time.Since(start) > timeout {
+				return image.Point{}, fmt.Errorf("templates not found within timeout: %v", timeout)
+			}
 		}
 	}
 }
 
-func MatchTemplateAndClick(template []byte, timeout time.Duration) error {
+func MatchTemplateAndClick(ctx context.Context, template []byte, timeout time.Duration) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	maxLoc, err := MatchTemplateWithTimeout(template, timeout)
+	maxLoc, err := MatchTemplateWithTimeout(ctx, template, timeout)
 	if err != nil {
 		return err
 	}
@@ -152,13 +163,13 @@ func MatchTemplateAndClick(template []byte, timeout time.Duration) error {
 	return nil
 }
 
-func MatchTemplateAndClickCenter(template []byte, timeout time.Duration) error {
+func MatchTemplateAndClickCenter(ctx context.Context, template []byte, timeout time.Duration) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	maxLoc, err := MatchTemplateWithTimeout(template, timeout)
+	maxLoc, err := MatchTemplateWithTimeout(ctx, template, timeout)
 	if err != nil {
 		return err
 	}

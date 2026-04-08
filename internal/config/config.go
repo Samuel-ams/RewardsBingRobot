@@ -44,12 +44,15 @@ func Load() (*Config, error) {
 		return nil, errors.New("EDGE_PATH is not set")
 	}
 
+	edgePath = filepath.Clean(edgePath)
+
 	userEdgeDir := os.Getenv("USER_EDGE_DIR")
 	if userEdgeDir == "" {
 		return nil, errors.New("USER_EDGE_DIR is not set")
 	}
 
 	homeDir = filepath.Join(homeDir, userEdgeDir)
+	homeDir = filepath.Clean(homeDir)
 
 	// Load config from environment variables
 	defaultConfig.EdgePath = edgePath
