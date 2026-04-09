@@ -32,12 +32,12 @@ func New(ctx context.Context) *RewardsRobot {
 func (r *RewardsRobot) Run() (err error) {
 	startTime := time.Now()
 
-	beeep.Notify(beeep.AppName, "Iniciando execução...", assets.RewardsLogoPNG)
+	beeep.Notify(beeep.AppName, "Iniciando execução...", assets.RewardsLogoPNG.Data)
 
 	defer func() {
 		r := recover()
 		if r != nil {
-			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", err), assets.RewardsLogoPNG)
+			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", err), assets.RewardsLogoPNG.Data)
 			return
 		}
 		slog.Info("Time elapsed", "time", time.Since(startTime))
@@ -56,7 +56,6 @@ func (r *RewardsRobot) Run() (err error) {
 	u := launcher.New().
 		Bin(cfg.EdgePath).
 		Headless(false).
-		// NoSandbox(true).
 		UserDataDir(cfg.UserEdgeDir).
 		Leakless(false).
 		MustLaunch()
@@ -155,58 +154,37 @@ func (r *RewardsRobot) Run() (err error) {
 	}
 
 	rewardsUrl := "https://rewards.bing.com/"
-	rewardsPage := browser.MustPage(rewardsUrl).MustWaitLoad()
+	rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad()
 
 	getCardsLength := `() => {
-		let divs = document.querySelectorAll("div.actionLink.x-hidden-vp1")
-		let count = []
-		divs.forEach((e, i) => {
-			if (e.children[0].textContent.includes("pontos")) {
-				count.push(i)
-			}
-		})
-		return count
+		const divs = document.querySelectorAll("span[mee-heading='heading']")
+		return divs.length
 	}`
 
 	clickCard := `idx => {
-		const divs = document.querySelectorAll("div.actionLink.x-hidden-vp1")
-		const target = divs[idx]?.children?.[0]
-		if (!target) return false
+		const divs = document.querySelectorAll("span[mee-heading='heading']")
+		const parent = divs[idx]?.closest(".ds-card-sec")
 
-		target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
-		target.click()
+		parent.querySelector("div.actionLink.x-hidden-vp1")?.children?.[0]?.click()
+
 		return true
 	}`
 
 	time.Sleep(time.Second * 3)
 
-	cardsValue := rewardsPage.MustEval(getCardsLength)
-	fmt.Println(cardsValue)
-	cardsIface := cardsValue.Val().([]any)
-	fmt.Println(cardsIface)
-	cardsLength := make([]int, len(cardsIface))
+	cardsLength := rewardsPage.MustEval(getCardsLength).Int()
 
-	for i, v := range cardsIface {
-		cardsLength[i] = int(v.(float64))
-	}
+	for idx := range cardsLength {
+		rewardsPage.MustEval(clickCard, idx)
 
-	fmt.Println(cardsLength)
-
-	for _, idx := range cardsLength {
-		ok := rewardsPage.MustEval(clickCard, idx).Bool()
-		if !ok {
-			slog.Warn("card not clickable", "index", idx)
-			continue
-		}
-
-		err = r.sleepOrCancel(time.Minute)
+		err = r.sleepOrCancel(time.Second * 20)
 		if err != nil {
 			return err
 		}
 
 		rewardsPage.MustActivate().MustWaitLoad()
 
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Second * 5)
 	}
 
 	return nil

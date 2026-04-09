@@ -26,7 +26,7 @@ func onReady(cancel context.CancelFunc, errChan <-chan error, doneChan <-chan st
 			case <-errChan:
 				systray.Quit()
 			case <-doneChan:
-				beeep.Notify(beeep.AppName, "Execução finalizada.", assets.RewardsLogoPNG)
+				beeep.Notify(beeep.AppName, "Execução finalizada.", assets.RewardsLogoPNG.Data)
 				systray.Quit()
 			}
 		}()
