@@ -56,6 +56,7 @@ func (r *RewardsRobot) Run() (err error) {
 	u := launcher.New().
 		Bin(cfg.EdgePath).
 		Headless(false).
+		// NoSandbox(true).
 		UserDataDir(cfg.UserEdgeDir).
 		Leakless(false).
 		MustLaunch()
@@ -151,6 +152,61 @@ func (r *RewardsRobot) Run() (err error) {
 		if err != nil {
 			return err
 		}
+	}
+
+	rewardsUrl := "https://rewards.bing.com/"
+	rewardsPage := browser.MustPage(rewardsUrl).MustWaitLoad()
+
+	getCardsLength := `() => {
+		let divs = document.querySelectorAll("div.actionLink.x-hidden-vp1")
+		let count = []
+		divs.forEach((e, i) => {
+			if (e.children[0].textContent.includes("pontos")) {
+				count.push(i)
+			}
+		})
+		return count
+	}`
+
+	clickCard := `idx => {
+		const divs = document.querySelectorAll("div.actionLink.x-hidden-vp1")
+		const target = divs[idx]?.children?.[0]
+		if (!target) return false
+
+		target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
+		target.click()
+		return true
+	}`
+
+	time.Sleep(time.Second * 3)
+
+	cardsValue := rewardsPage.MustEval(getCardsLength)
+	fmt.Println(cardsValue)
+	cardsIface := cardsValue.Val().([]any)
+	fmt.Println(cardsIface)
+	cardsLength := make([]int, len(cardsIface))
+
+	for i, v := range cardsIface {
+		cardsLength[i] = int(v.(float64))
+	}
+
+	fmt.Println(cardsLength)
+
+	for _, idx := range cardsLength {
+		ok := rewardsPage.MustEval(clickCard, idx).Bool()
+		if !ok {
+			slog.Warn("card not clickable", "index", idx)
+			continue
+		}
+
+		err = r.sleepOrCancel(time.Minute)
+		if err != nil {
+			return err
+		}
+
+		rewardsPage.MustActivate().MustWaitLoad()
+
+		time.Sleep(time.Second * 3)
 	}
 
 	return nil
