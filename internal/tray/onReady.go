@@ -24,6 +24,7 @@ func onReady(cancel context.CancelFunc, errChan <-chan error, doneChan <-chan st
 		go func() {
 			select {
 			case <-errChan:
+				beeep.Notify(beeep.AppName, "Ocorreu um erro durante a execução.", assets.RewardsLogoPNG.Data)
 				systray.Quit()
 			case <-doneChan:
 				beeep.Notify(beeep.AppName, "Execução finalizada.", assets.RewardsLogoPNG.Data)
