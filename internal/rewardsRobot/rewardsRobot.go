@@ -174,6 +174,15 @@ func (r *RewardsRobot) Run() (err error) {
 
 	cardsLength := rewardsPage.MustEval(getCardsLength).Int()
 
+	claimSearchBonusAxis, err := matcher.MatchTemplateCenterWithTimeout(r.ctx, assets.ClaimSearchBonus.Data, time.Second*10)
+	if err != nil {
+		slog.Error("Claim Search Bonus button not found", "error", err)
+	}
+
+	robotgo.MoveSmooth(claimSearchBonusAxis.X, claimSearchBonusAxis.Y, cfg.LowSpeed, cfg.HighSpeed)
+
+	time.Sleep(time.Second * 3)
+
 	for idx := range cardsLength {
 		rewardsPage.MustEval(clickCard, idx)
 
@@ -196,8 +205,9 @@ func (r *RewardsRobot) clickSearchBar() error {
 		return err
 	}
 
-	searchBarPoint, err := matcher.MatchTemplatesWithTimeout(r.ctx, time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
+	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, assets.SearchPlusDark.Data, assets.SearchPlusLight.Data)
 	if err != nil {
+		slog.Error("template not found", "error", err)
 		return err
 	}
 

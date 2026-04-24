@@ -106,6 +106,7 @@ func FindTemplates(templates ...[]byte) (bool, error) {
 	return false, fmt.Errorf("%d templates not found", len(templates))
 }
 
+// MatchTemplateWithTimeout returns the location of the template in the screenshot with a timeout
 func MatchTemplateWithTimeout(ctx context.Context, template []byte, timeout time.Duration) (image.Point, error) {
 	start := time.Now()
 
@@ -126,6 +127,42 @@ func MatchTemplateWithTimeout(ctx context.Context, template []byte, timeout time
 	}
 }
 
+func MatchTemplateCenterWithTimeout(ctx context.Context, template []byte, timeout time.Duration) (image.Point, error) {
+	start := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return image.Point{}, ctx.Err()
+		default:
+			if time.Since(start) > timeout {
+				return image.Point{}, fmt.Errorf("template not found within timeout: %v", timeout)
+			}
+
+			maxLoc, err := MatchTemplate(template)
+			if err != nil {
+				continue
+			}
+
+			// Decode template to get its size
+			templateMat, err := gocv.IMDecode(template, gocv.IMReadColor)
+			if err != nil {
+				continue
+			}
+			defer templateMat.Close()
+
+			templateWidth := templateMat.Cols()
+			templateHeight := templateMat.Rows()
+
+			centerX := maxLoc.X + templateWidth/2
+			centerY := maxLoc.Y + templateHeight/2
+
+			return image.Point{X: centerX, Y: centerY}, nil
+		}
+	}
+}
+
+// MatchTemplatesWithTimeout returns the first location of the templates in the screenshot with a timeout
 func MatchTemplatesWithTimeout(ctx context.Context, timeout time.Duration, templates ...[]byte) (image.Point, error) {
 	start := time.Now()
 
@@ -161,6 +198,48 @@ func MatchTemplateAndClick(ctx context.Context, template []byte, timeout time.Du
 	robotgo.Click()
 
 	return nil
+}
+
+func MatchTemplatesCenterWithTimeout(ctx context.Context, timeout time.Duration, templates ...[]byte) (image.Point, error) {
+	start := time.Now()
+	idx := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return image.Point{}, ctx.Err()
+		default:
+			if time.Since(start) > timeout {
+				return image.Point{}, fmt.Errorf("templates not found within timeout: %v", timeout)
+			}
+
+			if idx >= len(templates) {
+				idx = 0
+			}
+
+			maxLoc, err := MatchTemplate(templates[idx])
+			if err != nil {
+				idx++
+				continue
+			}
+
+			// Decode template to get its size
+			templateMat, err := gocv.IMDecode(templates[idx], gocv.IMReadColor)
+			if err != nil {
+				idx++
+				continue
+			}
+			defer templateMat.Close()
+
+			templateWidth := templateMat.Cols()
+			templateHeight := templateMat.Rows()
+
+			centerX := maxLoc.X + templateWidth/2
+			centerY := maxLoc.Y + templateHeight/2
+
+			return image.Point{X: centerX, Y: centerY}, nil
+		}
+	}
 }
 
 func MatchTemplateAndClickCenter(ctx context.Context, template []byte, timeout time.Duration) error {
