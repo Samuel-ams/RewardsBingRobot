@@ -53,12 +53,13 @@ func (r *RewardsRobot) Run() (err error) {
 		return err
 	}
 
-	u := launcher.New().
+	l := launcher.New().
 		Bin(cfg.EdgePath).
 		Headless(false).
 		UserDataDir(cfg.UserEdgeDir).
-		Leakless(false).
-		MustLaunch()
+		Leakless(false)
+
+	u := l.MustLaunch()
 
 	time.Sleep(time.Second)
 
@@ -70,7 +71,22 @@ func (r *RewardsRobot) Run() (err error) {
 
 	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
 
-	newsPage := browser.MustPage(newsBingUrl).MustWindowMaximize().MustWaitLoad()
+	newsPage := browser.MustPage(newsBingUrl).MustWaitLoad()
+
+	time.Sleep(time.Second * 3)
+
+	// Force the window to the OS foreground by PID — needed when launched by Task Scheduler.
+	edge.FocusPID(uint32(l.PID()))
+	time.Sleep(time.Millisecond * 500)
+
+	newsPage.MustWindowMaximize().MustActivate()
+
+	time.Sleep(time.Millisecond * 500)
+
+	robotgo.MoveSmooth(0, 0, cfg.LowSpeed, cfg.HighSpeed)
+	time.Sleep(time.Millisecond * 500)
+	robotgo.Click()
+	time.Sleep(time.Millisecond * 500)
 
 	err = matcher.MatchTemplateAndClickCenter(r.ctx, assets.AceitarButton.Data, time.Second*20)
 	if err != nil {
@@ -154,47 +170,7 @@ func (r *RewardsRobot) Run() (err error) {
 	}
 
 	rewardsUrl := "https://rewards.bing.com/"
-	rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad()
-
-	getCardsLength := `() => {
-		const divs = document.querySelectorAll("span[mee-heading='heading']")
-		return divs.length
-	}`
-
-	clickCard := `idx => {
-		const divs = document.querySelectorAll("span[mee-heading='heading']")
-		const parent = divs[idx]?.closest(".ds-card-sec")
-
-		parent.querySelector("div.actionLink.x-hidden-vp1")?.children?.[0]?.click()
-
-		return true
-	}`
-
-	time.Sleep(time.Second * 3)
-
-	cardsLength := rewardsPage.MustEval(getCardsLength).Int()
-
-	claimSearchBonusAxis, err := matcher.MatchTemplateCenterWithTimeout(r.ctx, assets.ClaimSearchBonus.Data, time.Second*10)
-	if err != nil {
-		slog.Error("Claim Search Bonus button not found", "error", err)
-	}
-
-	robotgo.MoveSmooth(claimSearchBonusAxis.X, claimSearchBonusAxis.Y, cfg.LowSpeed, cfg.HighSpeed)
-
-	time.Sleep(time.Second * 3)
-
-	for idx := range cardsLength {
-		rewardsPage.MustEval(clickCard, idx)
-
-		err = r.sleepOrCancel(time.Second * 20)
-		if err != nil {
-			return err
-		}
-
-		rewardsPage.MustActivate().MustWaitLoad()
-
-		time.Sleep(time.Second * 5)
-	}
+	rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad().MustActivate()
 
 	return nil
 }
@@ -205,7 +181,7 @@ func (r *RewardsRobot) clickSearchBar() error {
 		return err
 	}
 
-	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, assets.SearchPlusDark.Data, assets.SearchPlusLight.Data)
+	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
 	if err != nil {
 		slog.Error("template not found", "error", err)
 		return err

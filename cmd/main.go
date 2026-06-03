@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	rewardsrobot "rewardsAutomation/internal/rewardsRobot"
 	"rewardsAutomation/internal/tray"
 
@@ -11,10 +12,8 @@ import (
 )
 
 func main() {
-	err := godotenv.Overload()
-	if err != nil {
-		fmt.Printf("Error loading .env file: %v\n", err)
-	}
+	// Load .env relative to the executable so the built binary works from any directory
+	_ = godotenv.Overload()
 
 	beeep.AppName = "RewardsRobot"
 
@@ -41,6 +40,7 @@ func main() {
 		robot := rewardsrobot.New(ctx)
 		err := robot.Run()
 		if err != nil && err != context.Canceled {
+			slog.Error("robot exited with error", "error", err)
 			sendErr(err)
 			cancel()
 			return

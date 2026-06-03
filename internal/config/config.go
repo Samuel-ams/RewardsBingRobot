@@ -6,6 +6,13 @@ import (
 	"path/filepath"
 )
 
+// Build-time variables — set via:
+// go build -ldflags "-X rewardsAutomation/internal/config.BuildEdgePath=C:\path\to\msedge.exe -X rewardsAutomation/internal/config.BuildUserEdgeDir=AppData\Local\Microsoft\Edge\User Data"
+var (
+	BuildEdgePath    string
+	BuildUserEdgeDir string
+)
+
 type Config struct {
 	EdgePath    string
 	UserEdgeDir string
@@ -39,18 +46,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	edgePath := os.Getenv("EDGE_PATH")
+	edgePath := firstNonEmpty(BuildEdgePath, os.Getenv("EDGE_PATH"))
 	if edgePath == "" {
 		return nil, errors.New("EDGE_PATH is not set")
 	}
-
 	edgePath = filepath.Clean(edgePath)
 
-	userEdgeDir := os.Getenv("USER_EDGE_DIR")
+	userEdgeDir := firstNonEmpty(BuildUserEdgeDir, os.Getenv("USER_EDGE_DIR"))
 	if userEdgeDir == "" {
 		return nil, errors.New("USER_EDGE_DIR is not set")
 	}
-
 	homeDir = filepath.Join(homeDir, userEdgeDir)
 	homeDir = filepath.Clean(homeDir)
 
@@ -59,4 +64,13 @@ func Load() (*Config, error) {
 	defaultConfig.UserEdgeDir = homeDir
 
 	return defaultConfig, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
