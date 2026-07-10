@@ -14,9 +14,8 @@ import (
 	"unicode"
 
 	"github.com/gen2brain/beeep"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-vgo/robotgo"
+	"github.com/mxschmitt/playwright-go"
 )
 
 type RewardsRobot struct {
@@ -37,7 +36,8 @@ func (r *RewardsRobot) Run() (err error) {
 	defer func() {
 		r := recover()
 		if r != nil {
-			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", err), assets.RewardsLogoPNG.Data)
+			slog.Error("panic recovered", "error", r)
+			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", r), assets.RewardsLogoPNG.Data)
 			return
 		}
 		slog.Info("Time elapsed", "time", time.Since(startTime))
@@ -53,44 +53,130 @@ func (r *RewardsRobot) Run() (err error) {
 		return err
 	}
 
-	l := launcher.New().
-		Bin(cfg.EdgePath).
-		Headless(false).
-		UserDataDir(cfg.UserEdgeDir).
-		Leakless(false)
+	err = edge.CopyUserData(cfg.UserEdgeDir, cfg.TmpUserDataDir)
+	if err != nil {
+		return err
+	}
 
-	u := l.MustLaunch()
+	defer edge.RemoveTempUserData(cfg.TmpUserDataDir)
 
-	time.Sleep(time.Second)
+	// l := launcher.New().
+	// 	Bin(cfg.EdgePath).
+	// 	Headless(false).
+	// 	// UserDataDir(cfg.UserEdgeDir).
+	// 	Leakless(false)
 
-	browser := rod.New().
-		ControlURL(u).
-		NoDefaultDevice().
-		MustConnect()
-	defer browser.MustClose()
+	// u := l.MustLaunch()
+
+	// time.Sleep(time.Second)
+
+	// browser := rod.New().
+	// 	ControlURL(u).
+	// 	NoDefaultDevice().
+	// 	MustConnect()
+	// defer browser.MustClose()
+
+	pw, err := playwright.Run()
+	if err != nil {
+		return err
+	}
+	defer pw.Stop()
+
+	contextBrowser, err := pw.Chromium.LaunchPersistentContext(cfg.TmpUserDataDir, playwright.BrowserTypeLaunchPersistentContextOptions{
+		Channel:  new("msedge"),
+		Headless: new(false),
+		IgnoreDefaultArgs: []string{
+			"--no-sandbox",
+			"about:blank",
+			// "--disable-field-trial-config",
+			// "--disable-background-networking",
+			// "--disable-background-timer-throttling",
+			// "--disable-backgrounding-occluded-windows",
+			// "--disable-back-forward-cache",
+			// "--disable-breakpad",
+			// "--disable-client-side-phishing-detection",
+			// "--disable-component-extensions-with-background-pages",
+			// "--disable-component-update",
+			// "--no-default-browser-check",
+			// "--disable-default-apps",
+			// "--disable-dev-shm-usage",
+			// "--disable-edgeupdater",
+			// "--disable-extensions",
+			// "--disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion",
+			// "--enable-features=CDPScreenshotNewSurface",
+			// "--allow-pre-commit-input",
+			// "--disable-hang-monitor",
+			// "--disable-ipc-flooding-protection",
+			// "--disable-popup-blocking",
+			// "--disable-prompt-on-repost",
+			// "--disable-renderer-backgrounding",
+			// "--force-color-profile=srgb",
+			// "--metrics-recording-only",
+			// "--no-first-run",
+			// "--password-store=basic",
+			// "--use-mock-keychain",
+			// "--no-service-autorun",
+			// "--export-tagged-pdf",
+			// "--disable-search-engine-choice-screen",
+			// "--unsafely-disable-devtools-self-xss-warnings",
+			// "--edge-skip-compat-layer-relaunch",
+			// "--disable-infobars",
+			// "--disable-search-engine-choice-screen",
+			// "--disable-sync",
+			// "--enable-unsafe-swiftshader",
+			// "--remote-debugging-pipe",
+		},
+		Args: []string{
+			"--start-maximized",
+		},
+		NoViewport: new(true),
+		Locale:     new("pt-BR"),
+	})
+	if err != nil {
+		return err
+	}
+	defer contextBrowser.Close()
+
+	time.Sleep(time.Second * 5)
+
+	pages := contextBrowser.Pages()
+	var page playwright.Page
+
+	if len(pages) > 0 {
+		page = pages[0]
+	} else {
+		page, err = contextBrowser.NewPage()
+		if err != nil {
+			return err
+		}
+	}
 
 	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
 
-	newsPage := browser.MustPage(newsBingUrl).MustWaitLoad()
-
-	time.Sleep(time.Second * 3)
-
-	// Force the window to the OS foreground by PID — needed when launched by Task Scheduler.
-	edge.FocusPID(uint32(l.PID()))
-	time.Sleep(time.Millisecond * 500)
-
-	newsPage.MustWindowMaximize().MustActivate()
-
-	time.Sleep(time.Millisecond * 500)
-
-	robotgo.MoveSmooth(0, 0, cfg.LowSpeed, cfg.HighSpeed)
-	time.Sleep(time.Millisecond * 500)
-	robotgo.Click()
-	time.Sleep(time.Millisecond * 500)
-
-	err = matcher.MatchTemplateAndClickCenter(r.ctx, assets.AceitarButton.Data, time.Second*20)
+	// newsPage := browser.MustPage(newsBingUrl).MustWaitLoad()
+	_, err = page.Goto(newsBingUrl)
 	if err != nil {
-		slog.Error(assets.AceitarButton.Name+" button not found", "error", err)
+		return err
+	}
+
+	time.Sleep(time.Second * 5)
+
+	// // Force the window to the OS foreground by PID — needed when launched by Task Scheduler.
+	// edge.FocusPID(uint32(l.PID()))
+	// time.Sleep(time.Millisecond * 500)
+
+	// newsPage.MustWindowMaximize().MustActivate()
+
+	// time.Sleep(time.Millisecond * 500)
+
+	// robotgo.MoveSmooth(0, 0, cfg.LowSpeed, cfg.HighSpeed)
+	// time.Sleep(time.Millisecond * 500)
+	// robotgo.Click()
+	// time.Sleep(time.Millisecond * 500)
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, assets.AgreeContinue.Data, time.Second*20)
+	if err != nil {
+		slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
 	}
 
 	snippetsJS := `() => {
@@ -106,9 +192,19 @@ func (r *RewardsRobot) Run() (err error) {
 		return title
 	}`
 
-	snippetTitle := newsPage.MustEval(snippetsJS).String()
+	err = r.sleepOrCancel(time.Minute)
+	if err != nil {
+		return err
+	}
 
-	snippetTitle = keepAlphaNumeric(snippetTitle)
+	snippetTitle, err := page.Evaluate(snippetsJS)
+	if err != nil {
+		return err
+	}
+
+	snippetTitleStr := snippetTitle.(string)
+
+	snippetTitleStr = keepAlphaNumeric(snippetTitleStr)
 
 	time.Sleep(time.Second)
 
@@ -118,7 +214,7 @@ func (r *RewardsRobot) Run() (err error) {
 
 	time.Sleep(time.Second)
 
-	for _, ch := range snippetTitle {
+	for _, ch := range snippetTitleStr {
 		select {
 		case <-r.ctx.Done():
 			return r.ctx.Err()
@@ -137,8 +233,8 @@ func (r *RewardsRobot) Run() (err error) {
 	}
 
 	for range cfg.QtdSearches - 1 {
-		snippetTitleLength := len(snippetTitle)
-		snippetTitle = snippetTitle[:snippetTitleLength-1]
+		snippetTitleLength := len(snippetTitleStr)
+		snippetTitle = snippetTitleStr[:snippetTitleLength-1]
 
 		err = r.clickSearchBar()
 		if err != nil {
@@ -153,8 +249,8 @@ func (r *RewardsRobot) Run() (err error) {
 
 		time.Sleep(time.Second)
 
-		if snippetTitle[snippetTitleLength-2] == ' ' {
-			snippetTitle = snippetTitle[:snippetTitleLength-1]
+		if snippetTitleStr[snippetTitleLength-2] == ' ' {
+			snippetTitle = snippetTitleStr[:snippetTitleLength-1]
 
 			robotgo.KeyTap(robotgo.Backspace)
 
@@ -169,8 +265,8 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	rewardsUrl := "https://rewards.bing.com/"
-	rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad().MustActivate()
+	// rewardsUrl := "https://rewards.bing.com/"
+	// rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad().MustActivate()
 
 	return nil
 }
