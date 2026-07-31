@@ -12,8 +12,33 @@ import (
 	"gocv.io/x/gocv"
 )
 
+type Template struct {
+	Name   string
+	Mat    gocv.Mat
+	Width  int
+	Height int
+}
+
+func NewTemplate(name string, data []byte) (*Template, error) {
+	mat, err := gocv.IMDecode(data, gocv.IMReadColor)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Template{
+		Name:   name,
+		Mat:    mat,
+		Width:  mat.Cols(),
+		Height: mat.Rows(),
+	}, nil
+}
+
+func (t *Template) Close() {
+	t.Mat.Close()
+}
+
 // MatchTemplate returns the location of the template in the screenshot
-func MatchTemplate(template []byte) (image.Point, error) {
+func MatchTemplate(tpl *Template) (image.Point, error) {
 	screenshot := captureScreen()
 
 	screenshotMat, err := gocv.ImageToMatRGB(screenshot)
@@ -22,38 +47,48 @@ func MatchTemplate(template []byte) (image.Point, error) {
 	}
 	defer screenshotMat.Close()
 
-	templateMat, err := gocv.IMDecode(template, gocv.IMReadColor)
-	if err != nil {
-		return image.Point{}, err
-	}
-	defer templateMat.Close()
+	return matchTemplateOnMat(screenshotMat, tpl)
+}
 
+func matchTemplateOnMat(screen gocv.Mat, tpl *Template) (image.Point, error) {
 	result := gocv.NewMat()
 	defer result.Close()
 
-	err = gocv.MatchTemplate(screenshotMat, templateMat, &result, gocv.TmCcoeffNormed, gocv.NewMat())
+	err := gocv.MatchTemplate(
+		screen,
+		tpl.Mat,
+		&result,
+		gocv.TmCcoeffNormed,
+		gocv.NewMat(),
+	)
 	if err != nil {
-		return image.Point{}, err
+		return image.Point{}, nil
 	}
 
 	_, maxValue, _, maxLoc := gocv.MinMaxLoc(result)
 
 	if maxValue <= 0.85 {
-		return image.Point{}, fmt.Errorf("template not found")
+		return image.Point{}, fmt.Errorf("template %s not found (%.2f)", tpl.Name, maxValue)
 	}
 
 	return maxLoc, nil
 }
 
 // MatchTemplates returns the location of the templates in the screenshot
-func MatchTemplates(templates ...[]byte) (image.Point, error) {
-	for _, template := range templates {
-		maxLoc, err := MatchTemplate(template)
-		if err != nil {
-			continue
-		}
+func MatchTemplates(templates ...*Template) (image.Point, error) {
+	screenshot := captureScreen()
 
-		return maxLoc, nil
+	screenshotMat, err := gocv.ImageToMatRGB(screenshot)
+	if err != nil {
+		return image.Point{}, err
+	}
+	defer screenshotMat.Close()
+
+	for _, tpl := range templates {
+		loc, err := matchTemplateOnMat(screenshotMat, tpl)
+		if err == nil {
+			return loc, nil
+		}
 	}
 
 	return image.Point{}, fmt.Errorf("templates not found")
@@ -107,7 +142,7 @@ func FindTemplates(templates ...[]byte) (bool, error) {
 }
 
 // MatchTemplateWithTimeout returns the location of the template in the screenshot with a timeout
-func MatchTemplateWithTimeout(ctx context.Context, template []byte, timeout time.Duration) (image.Point, error) {
+func MatchTemplateWithTimeout(ctx context.Context, template *Template, timeout time.Duration) (image.Point, error) {
 	start := time.Now()
 
 	for {
@@ -127,7 +162,7 @@ func MatchTemplateWithTimeout(ctx context.Context, template []byte, timeout time
 	}
 }
 
-func MatchTemplateCenterWithTimeout(ctx context.Context, template []byte, timeout time.Duration) (image.Point, error) {
+func MatchTemplateCenterWithTimeout(ctx context.Context, template *Template, timeout time.Duration) (image.Point, error) {
 	start := time.Now()
 
 	for {
@@ -144,18 +179,8 @@ func MatchTemplateCenterWithTimeout(ctx context.Context, template []byte, timeou
 				continue
 			}
 
-			// Decode template to get its size
-			templateMat, err := gocv.IMDecode(template, gocv.IMReadColor)
-			if err != nil {
-				continue
-			}
-			defer templateMat.Close()
-
-			templateWidth := templateMat.Cols()
-			templateHeight := templateMat.Rows()
-
-			centerX := maxLoc.X + templateWidth/2
-			centerY := maxLoc.Y + templateHeight/2
+			centerX := maxLoc.X + template.Width/2
+			centerY := maxLoc.Y + template.Height/2
 
 			return image.Point{X: centerX, Y: centerY}, nil
 		}
@@ -163,7 +188,7 @@ func MatchTemplateCenterWithTimeout(ctx context.Context, template []byte, timeou
 }
 
 // MatchTemplatesWithTimeout returns the first location of the templates in the screenshot with a timeout
-func MatchTemplatesWithTimeout(ctx context.Context, timeout time.Duration, templates ...[]byte) (image.Point, error) {
+func MatchTemplatesWithTimeout(ctx context.Context, timeout time.Duration, templates ...*Template) (image.Point, error) {
 	start := time.Now()
 
 	for {
@@ -183,7 +208,7 @@ func MatchTemplatesWithTimeout(ctx context.Context, timeout time.Duration, templ
 	}
 }
 
-func MatchTemplateAndClick(ctx context.Context, template []byte, timeout time.Duration) error {
+func MatchTemplateAndClick(ctx context.Context, template *Template, timeout time.Duration) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -200,7 +225,7 @@ func MatchTemplateAndClick(ctx context.Context, template []byte, timeout time.Du
 	return nil
 }
 
-func MatchTemplatesCenterWithTimeout(ctx context.Context, timeout time.Duration, templates ...[]byte) (image.Point, error) {
+func MatchTemplatesCenterWithTimeout(ctx context.Context, timeout time.Duration, templates ...*Template) (image.Point, error) {
 	start := time.Now()
 	idx := 0
 
@@ -223,26 +248,15 @@ func MatchTemplatesCenterWithTimeout(ctx context.Context, timeout time.Duration,
 				continue
 			}
 
-			// Decode template to get its size
-			templateMat, err := gocv.IMDecode(templates[idx], gocv.IMReadColor)
-			if err != nil {
-				idx++
-				continue
-			}
-			defer templateMat.Close()
-
-			templateWidth := templateMat.Cols()
-			templateHeight := templateMat.Rows()
-
-			centerX := maxLoc.X + templateWidth/2
-			centerY := maxLoc.Y + templateHeight/2
+			centerX := maxLoc.X + templates[idx].Width/2
+			centerY := maxLoc.Y + templates[idx].Height/2
 
 			return image.Point{X: centerX, Y: centerY}, nil
 		}
 	}
 }
 
-func MatchTemplateAndClickCenter(ctx context.Context, template []byte, timeout time.Duration) error {
+func MatchTemplateAndClickCenter(ctx context.Context, template *Template, timeout time.Duration) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -253,18 +267,8 @@ func MatchTemplateAndClickCenter(ctx context.Context, template []byte, timeout t
 		return err
 	}
 
-	// Decode template to get its size
-	templateMat, err := gocv.IMDecode(template, gocv.IMReadColor)
-	if err != nil {
-		return err
-	}
-	defer templateMat.Close()
-
-	templateWidth := templateMat.Cols()
-	templateHeight := templateMat.Rows()
-
-	centerX := maxLoc.X + templateWidth/2
-	centerY := maxLoc.Y + templateHeight/2
+	centerX := maxLoc.X + template.Width/2
+	centerY := maxLoc.Y + template.Height/2
 
 	robotgo.MoveSmooth(centerX, centerY, cfg.LowSpeed, cfg.HighSpeed)
 	robotgo.Click()

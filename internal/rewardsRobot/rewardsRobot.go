@@ -14,8 +14,10 @@ import (
 	"unicode"
 
 	"github.com/gen2brain/beeep"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-vgo/robotgo"
-	"github.com/mxschmitt/playwright-go"
+	"github.com/go-vgo/robotgo/clipboard"
 )
 
 type RewardsRobot struct {
@@ -37,7 +39,9 @@ func (r *RewardsRobot) Run() (err error) {
 		r := recover()
 		if r != nil {
 			slog.Error("panic recovered", "error", r)
-			beeep.Notify(beeep.AppName, fmt.Sprintf("Ocorreu erro na execução.\n%v", r), assets.RewardsLogoPNG.Data)
+			beeep.Notify(beeep.AppName, "Ocorreu erro na execução.", assets.RewardsLogoPNG.Data)
+			beeep.Notify(beeep.AppName, fmt.Sprintf("%v", r), assets.RewardsLogoPNG.Data)
+			slog.Info("Time elapsed", "time", time.Since(startTime))
 			return
 		}
 		slog.Info("Time elapsed", "time", time.Since(startTime))
@@ -53,158 +57,175 @@ func (r *RewardsRobot) Run() (err error) {
 		return err
 	}
 
-	err = edge.CopyUserData(cfg.UserEdgeDir, cfg.TmpUserDataDir)
+	err = edge.CopyUserData(cfg.UserDataDir, cfg.TmpUserDataDir)
 	if err != nil {
 		return err
 	}
 
 	defer edge.RemoveTempUserData(cfg.TmpUserDataDir)
 
-	// l := launcher.New().
-	// 	Bin(cfg.EdgePath).
-	// 	Headless(false).
-	// 	// UserDataDir(cfg.UserEdgeDir).
-	// 	Leakless(false)
+	l := launcher.New().
+		Bin(cfg.EdgePath).
+		Headless(false).
+		UserDataDir(cfg.TmpUserDataDir).
+		NoSandbox(true).
+		Leakless(false)
+	u := l.MustLaunch()
 
-	// u := l.MustLaunch()
+	time.Sleep(time.Second)
 
-	// time.Sleep(time.Second)
-
-	// browser := rod.New().
-	// 	ControlURL(u).
-	// 	NoDefaultDevice().
-	// 	MustConnect()
-	// defer browser.MustClose()
-
-	pw, err := playwright.Run()
-	if err != nil {
-		return err
-	}
-	defer pw.Stop()
-
-	contextBrowser, err := pw.Chromium.LaunchPersistentContext(cfg.TmpUserDataDir, playwright.BrowserTypeLaunchPersistentContextOptions{
-		Channel:  new("msedge"),
-		Headless: new(false),
-		IgnoreDefaultArgs: []string{
-			"--no-sandbox",
-			"about:blank",
-			// "--disable-field-trial-config",
-			// "--disable-background-networking",
-			// "--disable-background-timer-throttling",
-			// "--disable-backgrounding-occluded-windows",
-			// "--disable-back-forward-cache",
-			// "--disable-breakpad",
-			// "--disable-client-side-phishing-detection",
-			// "--disable-component-extensions-with-background-pages",
-			// "--disable-component-update",
-			// "--no-default-browser-check",
-			// "--disable-default-apps",
-			// "--disable-dev-shm-usage",
-			// "--disable-edgeupdater",
-			// "--disable-extensions",
-			// "--disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion",
-			// "--enable-features=CDPScreenshotNewSurface",
-			// "--allow-pre-commit-input",
-			// "--disable-hang-monitor",
-			// "--disable-ipc-flooding-protection",
-			// "--disable-popup-blocking",
-			// "--disable-prompt-on-repost",
-			// "--disable-renderer-backgrounding",
-			// "--force-color-profile=srgb",
-			// "--metrics-recording-only",
-			// "--no-first-run",
-			// "--password-store=basic",
-			// "--use-mock-keychain",
-			// "--no-service-autorun",
-			// "--export-tagged-pdf",
-			// "--disable-search-engine-choice-screen",
-			// "--unsafely-disable-devtools-self-xss-warnings",
-			// "--edge-skip-compat-layer-relaunch",
-			// "--disable-infobars",
-			// "--disable-search-engine-choice-screen",
-			// "--disable-sync",
-			// "--enable-unsafe-swiftshader",
-			// "--remote-debugging-pipe",
-		},
-		Args: []string{
-			"--start-maximized",
-		},
-		NoViewport: new(true),
-		Locale:     new("pt-BR"),
-	})
-	if err != nil {
-		return err
-	}
-	defer contextBrowser.Close()
+	browser := rod.New().
+		ControlURL(u).
+		NoDefaultDevice().
+		MustConnect()
+	defer browser.MustClose()
 
 	time.Sleep(time.Second * 5)
 
-	pages := contextBrowser.Pages()
-	var page playwright.Page
+	pages := browser.MustPages()
+	var page *rod.Page
 
 	if len(pages) > 0 {
 		page = pages[0]
 	} else {
-		page, err = contextBrowser.NewPage()
-		if err != nil {
-			return err
-		}
+		page = browser.MustPage("edge://newtab")
 	}
+	defer page.MustClose()
 
-	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
+	time.Sleep(time.Millisecond * 500)
 
-	// newsPage := browser.MustPage(newsBingUrl).MustWaitLoad()
-	_, err = page.Goto(newsBingUrl)
+	// Force the window to the OS foreground by PID — needed when launched by Task Scheduler.
+	edge.FocusPID(uint32(l.PID()))
+
+	time.Sleep(time.Second)
+
+	page.MustWindowMaximize().MustActivate()
+
+	bingUrl := "https://bing.com"
+
+	page.MustNavigate(bingUrl).MustWaitLoad()
+
+	time.Sleep(time.Second * 2)
+
+	robotgo.MoveSmooth(0, 0, cfg.LowSpeed, cfg.HighSpeed)
+	time.Sleep(time.Millisecond * 500)
+	robotgo.Click()
+	time.Sleep(time.Millisecond * 500)
+
+	agreeContinueTpl, err := matcher.NewTemplate(assets.AgreeContinue.Name, assets.AgreeContinue.Data)
 	if err != nil {
 		return err
 	}
+	defer agreeContinueTpl.Close()
 
-	time.Sleep(time.Second * 5)
-
-	// // Force the window to the OS foreground by PID — needed when launched by Task Scheduler.
-	// edge.FocusPID(uint32(l.PID()))
-	// time.Sleep(time.Millisecond * 500)
-
-	// newsPage.MustWindowMaximize().MustActivate()
-
-	// time.Sleep(time.Millisecond * 500)
-
-	// robotgo.MoveSmooth(0, 0, cfg.LowSpeed, cfg.HighSpeed)
-	// time.Sleep(time.Millisecond * 500)
-	// robotgo.Click()
-	// time.Sleep(time.Millisecond * 500)
-
-	err = matcher.MatchTemplateAndClickCenter(r.ctx, assets.AgreeContinue.Data, time.Second*20)
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, agreeContinueTpl, time.Second*5)
 	if err != nil {
 		slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
 	}
 
-	snippetsJS := `() => {
-		let snippets = document.querySelectorAll(".snippet")
-		let title = ""
+	visualSearchDarkTpl, err := matcher.NewTemplate(assets.VisualSearchDark.Name, assets.VisualSearchDark.Data)
+	if err != nil {
+		return err
+	}
+	defer visualSearchDarkTpl.Close()
 
-		snippets.forEach((snippet) => {
-			if (snippet.title.length > title.length) {
-				title = snippet.title
-			}
-		})
+	visualSearchWhiteTpl, err := matcher.NewTemplate(assets.VisualSearchWhite.Name, assets.VisualSearchWhite.Data)
+	if err != nil {
+		return err
+	}
+	defer visualSearchWhiteTpl.Close()
 
-		return title
-	}`
+	visualSearchPos, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*5, visualSearchWhiteTpl, visualSearchDarkTpl)
+	if err != nil {
+		return err
+	}
+
+	robotgo.MoveSmooth(
+		visualSearchPos.X,
+		visualSearchPos.Y,
+		cfg.LowSpeed,
+		cfg.HighSpeed,
+	)
+
+	time.Sleep(time.Millisecond * 500)
+
+	robotgo.Click()
+
+	time.Sleep(time.Millisecond * 500)
+
+	imageURLTpl, err := matcher.NewTemplate(assets.PasteImageURL.Name, assets.PasteImageURL.Data)
+	if err != nil {
+		return err
+	}
+	defer imageURLTpl.Close()
+
+	messiImageURL := "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg/250px-Leo_Messi_Argentina_v_Egypt_7_July_2026-1.jpg"
+
+	err = clipboard.WriteAll(messiImageURL)
+	if err != nil {
+		return err
+	}
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, imageURLTpl, time.Second*5)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 500)
+
+	robotgo.KeyTap(robotgo.KeyV, robotgo.Ctrl)
+
+	time.Sleep(time.Second * 5)
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, agreeContinueTpl, time.Second*5)
+	if err != nil {
+		slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
+	}
+
+	r.sleepOrCancel(time.Minute)
+
+	robotgo.KeyTap(robotgo.F4)
+
+	time.Sleep(time.Millisecond * 500)
+
+	newsBingUrl := `https://www.bing.com/news/search?q=Fatos+Principais&nvaug=%5bNewsVertical+Category%3d%22rt_MaxClass%22%5d&FORM=Z9LH3`
+
+	for _, c := range newsBingUrl {
+		select {
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		default:
+			robotgo.Type(string(c), 0, cfg.TypeTick)
+		}
+	}
+
+	time.Sleep(time.Millisecond * 500)
+
+	robotgo.KeyTap(robotgo.Enter)
+
+	snippetsJS := fmt.Sprintf(`() => {
+		let snippets = [...document.querySelectorAll(".news_title")]
+
+		return snippets
+			.map(s => s.title)
+			.filter(Boolean)
+			.sort((a, b) => b.length - a.length)
+			.slice(0,%d)
+	}`, cfg.QtdSearches+1)
 
 	err = r.sleepOrCancel(time.Minute)
 	if err != nil {
 		return err
 	}
 
-	snippetTitle, err := page.Evaluate(snippetsJS)
-	if err != nil {
-		return err
+	snippetTitles := page.MustEval(snippetsJS).Arr()
+
+	titles := make([]string, 0, len(snippetTitles))
+
+	for i, title := range snippetTitles {
+		titles = append(titles, title.String())
+		titles[i] = keepAlphaNumeric(titles[i])
 	}
-
-	snippetTitleStr := snippetTitle.(string)
-
-	snippetTitleStr = keepAlphaNumeric(snippetTitleStr)
 
 	time.Sleep(time.Second)
 
@@ -214,7 +235,7 @@ func (r *RewardsRobot) Run() (err error) {
 
 	time.Sleep(time.Second)
 
-	for _, ch := range snippetTitleStr {
+	for _, ch := range titles[0] {
 		select {
 		case <-r.ctx.Done():
 			return r.ctx.Err()
@@ -223,39 +244,52 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
+	titles = titles[1:]
+
 	time.Sleep(time.Millisecond * 500)
 
 	robotgo.KeyTap(robotgo.Enter)
+
+	time.Sleep(time.Second)
+
+	pages = browser.MustPages()
+	searchPage := pages[1]
+	defer searchPage.MustClose()
+
+	searchPage.MustWaitLoad()
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, agreeContinueTpl, time.Second*5)
+	if err != nil {
+		slog.Error(assets.AgreeContinue.Name+" button not found", "error", err)
+	}
 
 	err = r.sleepOrCancel(time.Minute)
 	if err != nil {
 		return err
 	}
 
-	for range cfg.QtdSearches - 1 {
-		snippetTitleLength := len(snippetTitleStr)
-		snippetTitle = snippetTitleStr[:snippetTitleLength-1]
-
+	for i := range cfg.QtdSearches - 1 {
 		err = r.clickSearchBar()
 		if err != nil {
 			return err
 		}
 
-		robotgo.KeyTap(robotgo.End, robotgo.Ctrl)
+		time.Sleep(time.Millisecond * 500)
+
+		robotgo.KeyTap(robotgo.KeyA, robotgo.Ctrl)
 
 		time.Sleep(time.Second)
 
-		robotgo.KeyTap(robotgo.Backspace)
-
-		time.Sleep(time.Second)
-
-		if snippetTitleStr[snippetTitleLength-2] == ' ' {
-			snippetTitle = snippetTitleStr[:snippetTitleLength-1]
-
-			robotgo.KeyTap(robotgo.Backspace)
-
-			time.Sleep(time.Millisecond * 500)
+		for _, ch := range titles[i] {
+			select {
+			case <-r.ctx.Done():
+				return r.ctx.Err()
+			default:
+				robotgo.Type(string(ch), 0, cfg.TypeTick)
+			}
 		}
+
+		time.Sleep(time.Millisecond * 500)
 
 		robotgo.KeyTap(robotgo.Enter)
 
@@ -265,8 +299,114 @@ func (r *RewardsRobot) Run() (err error) {
 		}
 	}
 
-	// rewardsUrl := "https://rewards.bing.com/"
-	// rewardsPage := browser.MustPage(rewardsUrl).MustWindowMaximize().MustWaitLoad().MustActivate()
+	robotgo.KeyTap(robotgo.F4)
+
+	time.Sleep(time.Millisecond * 500)
+
+	rewardsUrl := "https://rewards.bing.com/dashboard"
+
+	for _, c := range rewardsUrl {
+		select {
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		default:
+			robotgo.Type(string(c), 0, cfg.TypeTick)
+		}
+	}
+
+	time.Sleep(time.Millisecond * 500)
+
+	robotgo.KeyTap(robotgo.Enter)
+
+	time.Sleep(time.Millisecond * 500)
+
+	searchPage.MustWaitLoad()
+
+	time.Sleep(time.Second * 10)
+
+	readyToClaimTpl, err := matcher.NewTemplate(assets.ReadyToClaim.Name, assets.ReadyToClaim.Data)
+	if err != nil {
+		return err
+	}
+	defer readyToClaimTpl.Close()
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, readyToClaimTpl, time.Second*5)
+	if err != nil {
+		return fmt.Errorf(assets.AgreeContinue.Name+" not found: %v", err)
+	}
+
+	time.Sleep(time.Second * 5)
+
+	claimPointsTpl, err := matcher.NewTemplate(readyToClaimTpl.Name, assets.ClaimPoints.Data)
+	if err != nil {
+		return err
+	}
+	defer claimPointsTpl.Close()
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, claimPointsTpl, time.Second*5)
+	if err != nil {
+		slog.Error(assets.ClaimPoints.Name+" not found", "error", err)
+
+		closeClaimPointsTpl, err := matcher.NewTemplate(assets.CloseClaimPoints.Name, assets.CloseClaimPoints.Data)
+		if err != nil {
+			return err
+		}
+		defer closeClaimPointsTpl.Close()
+
+		err = matcher.MatchTemplateAndClickCenter(r.ctx, closeClaimPointsTpl, time.Second*5)
+		if err != nil {
+			return fmt.Errorf("%s not found: %v", assets.ClaimPoints.Name, err)
+		}
+	}
+
+	time.Sleep(time.Second * 5)
+
+	anchors := searchPage.MustElements("#dailyset div.grid > a")
+
+	for _, a := range anchors {
+		a.MustEval(`() => {this.click()}`)
+
+		err = r.sleepOrCancel(time.Minute)
+		if err != nil {
+			return err
+		}
+
+		robotgo.KeyTap(robotgo.KeyW, robotgo.Ctrl)
+
+		time.Sleep(time.Second * 2)
+	}
+
+	ganharLabelTpl, err := matcher.NewTemplate(assets.GanharLabel.Name, assets.GanharLabel.Data)
+	if err != nil {
+		return err
+	}
+	defer ganharLabelTpl.Close()
+
+	err = matcher.MatchTemplateAndClickCenter(r.ctx, ganharLabelTpl, time.Second*5)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Second * 10)
+
+	anchors = searchPage.MustElementsByJS(`
+		() => [...document.querySelectorAll("#moreactivities a")].filter(a => 
+			a.textContent.includes("+")
+		)
+	`)
+
+	for _, a := range anchors {
+		a.MustEval(`() => {this.click()}`)
+
+		err = r.sleepOrCancel(time.Minute)
+		if err != nil {
+			return err
+		}
+
+		robotgo.KeyTap(robotgo.KeyW, robotgo.Ctrl)
+
+		time.Sleep(time.Second * 2)
+	}
 
 	return nil
 }
@@ -277,7 +417,19 @@ func (r *RewardsRobot) clickSearchBar() error {
 		return err
 	}
 
-	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, assets.SearchBarDark.Data, assets.SearchBarLight.Data)
+	searchBarDarkTpl, err := matcher.NewTemplate(assets.SearchBarDark.Name, assets.SearchBarDark.Data)
+	if err != nil {
+		return err
+	}
+	defer searchBarDarkTpl.Close()
+
+	searchBarLightTpl, err := matcher.NewTemplate(assets.SearchBarLight.Name, assets.SearchBarLight.Data)
+	if err != nil {
+		return err
+	}
+	defer searchBarLightTpl.Close()
+
+	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, searchBarDarkTpl, searchBarLightTpl)
 	if err != nil {
 		slog.Error("template not found", "error", err)
 		return err
