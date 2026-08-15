@@ -43,6 +43,9 @@ var pasteImageURL []byte
 //go:embed ganharLabel.png
 var ganharLabel []byte
 
+//go:embed plusSearch.png
+var plusSearch []byte
+
 // //go:embed searchPlusDark.png
 // var searchPlusDark []byte
 
