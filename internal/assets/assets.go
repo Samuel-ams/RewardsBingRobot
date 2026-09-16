@@ -43,14 +43,11 @@ var pasteImageURL []byte
 //go:embed ganharLabel.png
 var ganharLabel []byte
 
-//go:embed plusSearch.png
-var plusSearch []byte
+//go:embed searchPlusDark.png
+var searchPlusDark []byte
 
-// //go:embed searchPlusDark.png
-// var searchPlusDark []byte
-
-// //go:embed searchPlusLight.png
-// var searchPlusLight []byte
+//go:embed searchPlusLight.png
+var searchPlusLight []byte
 
 var (
 	SearchBarDark     = Asset{Name: "searchBarDark", Data: searchBarDark}
@@ -65,6 +62,6 @@ var (
 	VisualSearchDark  = Asset{Name: "visualSearchDark", Data: visualSearchDark}
 	PasteImageURL     = Asset{Name: "pasteImageURL", Data: pasteImageURL}
 	GanharLabel       = Asset{Name: "ganharLabel", Data: ganharLabel}
-	// SearchPlusDark   = Asset{Name: "searchPlusDark", Data: searchPlusDark}
-	// SearchPlusLight  = Asset{Name: "searchPlusLight", Data: searchPlusLight}
+	SearchPlusDark    = Asset{Name: "searchPlusDark", Data: searchPlusDark}
+	SearchPlusLight   = Asset{Name: "searchPlusLight", Data: searchPlusLight}
 )

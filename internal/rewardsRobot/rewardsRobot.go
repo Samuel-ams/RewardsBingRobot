@@ -429,7 +429,19 @@ func (r *RewardsRobot) clickSearchBar() error {
 	}
 	defer searchBarLightTpl.Close()
 
-	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, searchBarDarkTpl, searchBarLightTpl)
+	searchPlusLightTpl, err := matcher.NewTemplate(assets.SearchPlusLight.Name, assets.SearchPlusLight.Data)
+	if err != nil {
+		return err
+	}
+	defer searchPlusLightTpl.Close()
+
+	searchPlusDarkTpl, err := matcher.NewTemplate(assets.SearchPlusDark.Name, assets.SearchPlusDark.Data)
+	if err != nil {
+		return err
+	}
+	defer searchPlusDarkTpl.Close()
+
+	searchBarPoint, err := matcher.MatchTemplatesCenterWithTimeout(r.ctx, time.Second*20, searchBarDarkTpl, searchBarLightTpl, searchPlusLightTpl, searchBarDarkTpl)
 	if err != nil {
 		slog.Error("template not found", "error", err)
 		return err
